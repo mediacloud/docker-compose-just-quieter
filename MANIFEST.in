@@ -1,0 +1,4 @@
+include *.md
+include setup.*
+include docker-compose-just-quieter
+include MANIFEST.in

@@ -1,0 +1,112 @@
+#!/usr/bin/env python3
+
+"""
+Docker Compose CLI utility wrapper which makes "docker-compose" quieter.
+
+See README.md for details.
+"""
+
+import argparse
+from enum import IntEnum
+import re
+import sys
+from typing import Optional, Callable, TextIO
+
+from compose.cli.main import main as docker_compose_main
+import compose.parallel
+
+
+class LogLevel(IntEnum):
+    """
+    Valid "docker-compose" log levels.
+    """
+    DEBUG = 1
+    INFO = 2
+    WARNING = 3
+    ERROR = 4
+    CRITICAL = 5
+
+
+class FilteredParallelStreamWriter(compose.parallel.ParallelStreamWriter):
+    """
+    ParallelStreamWriter subclass that optionally filters out certain messages depending on the log level.
+    """
+
+    IGNORED_MESSAGES = {
+        'Creating',
+        'Starting',
+        'Stopping',
+        'Removing',
+    }
+    """Messages that get ignored."""
+
+    LOG_LEVEL_THRESHOLD = LogLevel.INFO
+    """Lowest log level threshold over which messages will be filtered out."""
+
+    __slots__ = [
+        '__log_level',
+    ]
+
+    def __init__(self, stream: TextIO, log_level: LogLevel):
+        super().__init__(stream=stream)
+        assert log_level, "Log level is expected to be set."
+        self.__log_level = log_level
+
+    def __message_should_be_ignored(self, message: Optional[str]) -> bool:
+        """
+        Return True if the message is to be ignored, based on log level and the message itself.
+
+        :param message: Message coming in through one of the ParallelStreamWriter methods.
+        :return: True if the message is to be ignored.
+        """
+        if message is None:
+            return True
+
+        if self.__log_level > self.LOG_LEVEL_THRESHOLD:
+            if message in self.IGNORED_MESSAGES:
+                return True
+
+        return False
+
+    def add_object(self, msg: Optional[str], obj_index: str):
+        if self.__message_should_be_ignored(msg):
+            return
+
+        super().add_object(msg, obj_index)
+
+    def write_initial(self, msg: Optional[str], obj_index: str):
+        if self.__message_should_be_ignored(msg):
+            return
+
+        super().write_initial(msg, obj_index)
+
+    def write(self, msg: Optional[str], obj_index: str, status: str, color_func: Callable[[str], str]):
+        if self.__message_should_be_ignored(msg):
+            return
+
+        super().write(msg, obj_index, status, color_func)
+
+
+def main() -> int:
+    """
+    Main entrypoint.
+
+    :return: Exit value of Docker Compose's main().
+    """
+    # Copied from vendor's "docker-compose"
+    sys.argv[0] = re.sub(r'(-script\.pyw|\.exe)?$', '', sys.argv[0])
+
+    # Peek into arguments and find out whether --log-level is set
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--log-level', type=str, choices=[x.name for x in LogLevel], default=LogLevel.INFO.name)
+    args, _ = parser.parse_known_args()
+    log_level = LogLevel[args.log_level]
+
+    filtered_stream_writer = FilteredParallelStreamWriter(stream=sys.stderr, log_level=log_level)
+    compose.parallel.ParallelStreamWriter.instance = filtered_stream_writer
+
+    return docker_compose_main()
+
+
+if __name__ == '__main__':
+    sys.exit(main())
