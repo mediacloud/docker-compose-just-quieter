@@ -7,7 +7,7 @@ setuptools.setup(
     name='docker-compose-just-quieter',
     version='0.1',
     author='Linas Valiukas, Media Cloud project',
-    author_email='linas@media.mit.edu',
+    author_email='linas@mediacloud.org',
     description='Docker Compose CLI utility wrapper which makes `docker-compose` quieter',
     long_description=long_description,
     long_description_content_type='text/markdown',
