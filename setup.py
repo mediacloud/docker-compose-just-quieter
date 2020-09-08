@@ -11,7 +11,7 @@ setuptools.setup(
     description='Docker Compose CLI utility wrapper which makes `docker-compose` quieter',
     long_description=long_description,
     long_description_content_type='text/markdown',
-    url='https://github.com/berkmancenter/mediacloud-docker-compose-just-quieter',
+    url='https://github.com/mediacloud/docker-compose-just-quieter',
     license='Apache License 2.0',
     keywords='docker docker-compose',
     packages=[],
